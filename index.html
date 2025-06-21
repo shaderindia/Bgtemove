@@ -1,0 +1,232 @@
+// Replace the entire script section with this updated version
+
+const imageUpload = document.getElementById('imageUpload');
+const fileNameSpan = document.getElementById('fileName');
+const removeBgBtn = document.getElementById('removeBgBtn');
+const changeBgColorBtn = document.getElementById('changeBgColorBtn');
+const bgColorPicker = document.getElementById('bgColorPicker');
+const downloadTransparentBtn = document.getElementById('downloadTransparentBtn');
+const downloadColorBtn = document.getElementById('downloadColorBtn');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const toast = document.getElementById('toast');
+const loader = document.getElementById('loader');
+
+let model, originalImage, segmentationData;
+
+// --- Tuning Parameters ---
+const MAX_SIZE = 1024; // For resizing to prevent crashes
+const SEGMENTATION_THRESHOLD = 0.7; // Increased threshold for better results
+const MASK_BLUR_AMOUNT = 5; // Increased feathering for smoother edges
+
+async function loadModel() {
+    setLoading(true, "Loading TensorFlow.js model...");
+    try {
+        model = await bodyPix.load({
+            architecture: 'MobileNetV1',
+            outputStride: 16,
+            multiplier: 0.75,
+            quantBytes: 2
+        });
+        showToast('Model loaded successfully.');
+    } catch (err) {
+        console.error("Failed to load model: ", err);
+        showToast('Error: Could not load the model. Please check your internet connection.');
+    } finally {
+        setLoading(false);
+    }
+}
+
+loadModel();
+
+imageUpload.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    fileNameSpan.textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            const [width, height] = resizeDimensions(img.width, img.height);
+            canvas.width = width;
+            canvas.height = height;
+            
+            originalImage = new Image();
+            originalImage.src = event.target.result;
+            originalImage.onload = () => {
+                ctx.drawImage(originalImage, 0, 0, width, height);
+                enableButtons(true, false);
+                segmentationData = null;
+            }
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
+function resizeDimensions(width, height) {
+    if (width > MAX_SIZE || height > MAX_SIZE) {
+        if (width > height) {
+            return [MAX_SIZE, Math.round(height * (MAX_SIZE / width))];
+        } else {
+            return [Math.round(width * (MAX_SIZE / height)), MAX_SIZE];
+        }
+    }
+    return [width, height];
+}
+
+removeBgBtn.onclick = async () => {
+    if (!model || !originalImage) return;
+
+    setLoading(true, "Detecting person and removing background...");
+    
+    try {
+        segmentationData = await model.segmentPerson(originalImage, {
+            segmentationThreshold: SEGMENTATION_THRESHOLD,
+            internalResolution: 'high', // Higher quality segmentation
+            maxDetections: 1 // Focus on one person
+        });
+
+        const hasPerson = segmentationData.data.some(val => val === 1);
+        if (!hasPerson) {
+            showToast("Could not detect a person. Please try another image with clearer subject.");
+            return;
+        }
+
+        drawCanvas(null); // Draw with transparent background
+        showToast('Background removed successfully!');
+        enableButtons(true, true);
+    } catch (err) {
+        console.error("Error during segmentation: ", err);
+        showToast("An error occurred during processing. Please try again.");
+    } finally {
+        setLoading(false);
+    }
+};
+
+// Improved drawing function with better edge handling
+function drawCanvas(backgroundColor) {
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Create a temporary canvas for the background
+    const bgCanvas = document.createElement('canvas');
+    bgCanvas.width = canvas.width;
+    bgCanvas.height = canvas.height;
+    const bgCtx = bgCanvas.getContext('2d');
+    
+    // Apply background color if provided
+    if (backgroundColor) {
+        bgCtx.fillStyle = backgroundColor;
+        bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+    }
+    
+    // Create mask from segmentation data
+    const foregroundColor = {r: 255, g: 255, b: 255, a: 255};
+    const backgroundColorMask = {r: 0, g: 0, b: 0, a: 255};
+    const mask = bodyPix.toMask(segmentationData, foregroundColor, backgroundColorMask);
+    
+    // Draw the mask with feathering
+    bodyPix.drawMask(
+        canvas,
+        bgCanvas,
+        mask,
+        1, // opacity
+        MASK_BLUR_AMOUNT, // edge feathering
+        false // don't flip horizontal
+    );
+    
+    // Draw the original image using the mask
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+changeBgColorBtn.onclick = () => {
+    if (!segmentationData) {
+        showToast("Please remove the background first.");
+        return;
+    }
+    drawCanvas(bgColorPicker.value);
+    showToast('Background color applied.');
+};
+
+downloadTransparentBtn.onclick = () => {
+    if (!segmentationData) return;
+    
+    // Create a temporary canvas for transparent download
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // Draw transparent version
+    const mask = bodyPix.toMask(
+        segmentationData, 
+        {r: 255, g: 255, b: 255, a: 255},
+        {r: 0, g: 0, b: 0, a: 0} // Transparent background
+    );
+    
+    bodyPix.drawMask(
+        tempCanvas,
+        tempCanvas,
+        mask,
+        1,
+        MASK_BLUR_AMOUNT,
+        false
+    );
+    
+    tempCtx.globalCompositeOperation = 'source-in';
+    tempCtx.drawImage(originalImage, 0, 0, tempCanvas.width, tempCanvas.height);
+    
+    downloadImage(tempCanvas.toDataURL('image/png'), 'transparent_background.png');
+    showToast('Transparent PNG downloaded.');
+    
+    // Restore colored version if it was shown
+    if (!changeBgColorBtn.disabled) {
+        drawCanvas(bgColorPicker.value);
+    }
+};
+
+downloadColorBtn.onclick = () => {
+    if (!segmentationData) return;
+    drawCanvas(bgColorPicker.value);
+    downloadImage(canvas.toDataURL('image/png'), 'colored_background.png');
+    showToast('Image with background downloaded.');
+};
+
+function downloadImage(href, filename) {
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function enableButtons(removeBg, others) {
+    removeBgBtn.disabled = !removeBg;
+    changeBgColorBtn.disabled = !others;
+    downloadTransparentBtn.disabled = !others;
+    downloadColorBtn.disabled = !others;
+}
+
+function showToast(message) {
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+
+function setLoading(isLoading, message = '') {
+    if (isLoading) {
+        loader.classList.add('show');
+        if (message) showToast(message);
+        [removeBgBtn, changeBgColorBtn, downloadTransparentBtn, downloadColorBtn].forEach(btn => btn.disabled = true);
+    } else {
+        loader.classList.remove('show');
+        enableButtons(!!originalImage, !!segmentationData);
+    }
+}
