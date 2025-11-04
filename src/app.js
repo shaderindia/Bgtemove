@@ -28,17 +28,17 @@ async function init() {
         showLoading('Loading AI model...');
         await initModel();
         state.modelReady = true;
-        
+
         const provider = getExecutionProvider();
         const providerEl = document.getElementById('execution-provider');
         if (providerEl) providerEl.textContent = provider;
-        
+
         const statusDot = document.querySelector('.status-dot');
         if (statusDot) statusDot.classList.add('active');
-        
+
         hideLoading();
         showToast(`Model loaded (${provider})`, 'success');
-        
+
         initUI(state, {
             onImageLoad: handleImageLoad,
             onBackgroundChange: handleBackgroundChange,
@@ -67,18 +67,18 @@ async function handleImageLoad(file) {
         showToast('File too large (max 50MB)', 'error');
         return;
     }
-    
+
     try {
         showLoading('Processing image...');
         const { image, canvas } = await loadImage(file);
         state.originalImage = { image, canvas };
-        
+
         const mask = await processImage(canvas);
         state.originalMask = mask;
         state.currentMask = new Float32Array(mask);
         state.maskHistory = [new Float32Array(mask)];
         state.historyIndex = 0;
-        
+
         hideLoading();
         togglePreview(true);
         updatePreview();
@@ -101,6 +101,9 @@ function handleEdgeSoftnessChange(value) {
     updatePreview();
 }
 
+// Smooth brush blending:
+// - add: raise alpha toward 1 with max(current, strength)
+// - remove: reduce alpha: current * (1 - strength)
 function handleBrushPaint(paintData) {
     if (!state.currentMask) return;
     const mode = paintData.mode || 'add';
@@ -111,7 +114,6 @@ function handleBrushPaint(paintData) {
         if (mode === 'add') {
             next = Math.max(cur, strength);
         } else {
-            // remove: reduce alpha by brush strength
             next = cur * (1 - strength);
         }
         state.currentMask[idx] = Math.max(0, Math.min(1, next));
@@ -125,8 +127,8 @@ function addToHistory() {
     state.maskHistory.push(new Float32Array(state.currentMask));
     state.historyIndex++;
     if (state.maskHistory.length > 50) {
-      state.maskHistory.shift();
-      state.historyIndex--;
+        state.maskHistory.shift();
+        state.historyIndex--;
     }
     updateHistoryButtons(state.historyIndex > 0, false);
 }
@@ -168,7 +170,7 @@ function handleResetMask() {
 
 function updatePreview() {
     if (!state.originalImage || !state.currentMask) return;
-    
+
     const output = composeOutput(
         state.originalImage.canvas,
         state.currentMask,
@@ -176,15 +178,15 @@ function updatePreview() {
         state.customColor,
         state.edgeSoftness
     );
-    
+
     const beforeCanvas = document.getElementById('before-canvas');
     const afterCanvas = document.getElementById('after-canvas');
-    
+
     if (beforeCanvas && afterCanvas) {
         beforeCanvas.width = state.originalImage.canvas.width;
         beforeCanvas.height = state.originalImage.canvas.height;
         beforeCanvas.getContext('2d').drawImage(state.originalImage.canvas, 0, 0);
-        
+
         afterCanvas.width = output.width;
         afterCanvas.height = output.height;
         afterCanvas.getContext('2d').drawImage(output, 0, 0);
