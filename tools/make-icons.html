@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Make PNG Icons from SVG</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body{font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:20px;}
+    .card{border:1px solid #e5e7eb; border-radius:10px; padding:16px; max-width:720px}
+    .row{display:flex; gap:12px; align-items:center; margin:10px 0;}
+    button{padding:8px 12px; border-radius:8px; border:1px solid #e5e7eb; background:#4F46E5; color:#fff; font-weight:600; cursor:pointer}
+    input[type=file]{padding:8px}
+    canvas{background:#f8fafc; border-radius:8px}
+    .muted{color:#6b7280; font-size:14px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Create PNG Icons</h2>
+    <p class="muted">Load your SVG (recommended: public/icon-source.svg). Then export PNG icons at 192x192 and 512x512 for the Web App Manifest.</p>
+    <div class="row">
+      <input id="file" type="file" accept=".svg,image/svg+xml">
+      <button id="btn192" disabled>Download 192 PNG</button>
+      <button id="btn512" disabled>Download 512 PNG</button>
+    </div>
+    <div class="row">
+      <canvas id="preview" width="256" height="256"></canvas>
+      <span class="muted">Preview (256x256 sample)</span>
+    </div>
+  </div>
+
+  <script>
+    const file = document.getElementById('file');
+    const btn192 = document.getElementById('btn192');
+    const btn512 = document.getElementById('btn512');
+    const preview = document.getElementById('preview');
+    const pctx = preview.getContext('2d');
+
+    let svgText = null;
+
+    function renderPreview() {
+      if (!svgText) return;
+      const img = new Image();
+      const url = URL.createObjectURL(new Blob([svgText], {type:'image/svg+xml'}));
+      img.onload = () => {
+        pctx.clearRect(0,0,preview.width, preview.height);
+        pctx.drawImage(img, 0, 0, preview.width, preview.height);
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    }
+
+    function downloadPng(size) {
+      if (!svgText) return;
+      const img = new Image();
+      const url = URL.createObjectURL(new Blob([svgText], {type:'image/svg+xml'}));
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0,0,size,size);
+        ctx.drawImage(img, 0, 0, size, size);
+        canvas.toBlob((blob) => {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `icon-${size}.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(a.href);
+        }, 'image/png');
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    }
+
+    file.addEventListener('change', async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      svgText = await f.text();
+      renderPreview();
+      btn192.disabled = false;
+      btn512.disabled = false;
+    });
+
+    btn192.addEventListener('click', () => downloadPng(192));
+    btn512.addEventListener('click', () => downloadPng(512));
+  </script>
+</body>
+</html>
