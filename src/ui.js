@@ -112,25 +112,46 @@ function initComparisonSlider() {
   const after = document.getElementById('after-canvas');
   if (!slider || !handle || !after) return;
 
-  const apply = (x) => {
-    const rect = slider.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(100, ((x - rect.left) / rect.width) * 100));
-    after.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
-    handle.style.left = `${pct}%`;
-    handle.setAttribute('aria-valuenow', `${Math.round(pct)}`);
+  // Initialize to 50%
+  comparison.pos = 50;
+  after.style.clipPath = `inset(0 ${100 - comparison.pos}% 0 0)`;
+  handle.style.left = `${comparison.pos}%`;
+  handle.setAttribute('aria-valuenow', `${comparison.pos}`);
+
+  const applyPct = (pct) => {
+    comparison.pos = Math.max(0, Math.min(100, pct));
+    after.style.clipPath = `inset(0 ${100 - comparison.pos}% 0 0)`;
+    handle.style.left = `${comparison.pos}%`;
+    handle.setAttribute('aria-valuenow', `${Math.round(comparison.pos)}`);
   };
 
-  handle.addEventListener('mousedown', (e) => { e.preventDefault(); document.addEventListener('mousemove', move); document.addEventListener('mouseup', up); });
-  handle.addEventListener('touchstart', (e) => { e.preventDefault(); document.addEventListener('touchmove', tmove, { passive: false }); document.addEventListener('touchend', tup); });
+  const applyFromClientX = (x) => {
+    const rect = slider.getBoundingClientRect();
+    const pct = ((x - rect.left) / rect.width) * 100;
+    applyPct(pct);
+  };
 
-  function move(e){ apply(e.clientX); }
-  function up(){ document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }
-  function tmove(e){ apply(e.touches[0].clientX); }
-  function tup(){ document.removeEventListener('touchmove', tmove); document.removeEventListener('touchend', tup); }
+  // Pointer/Touch drag
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const move = (ev) => applyFromClientX(ev.clientX);
+    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
 
+  handle.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const move = (ev) => applyFromClientX(ev.touches[0].clientX);
+    const up = () => { document.removeEventListener('touchmove', move); document.removeEventListener('touchend', up); };
+    document.addEventListener('touchmove', move, { passive: false });
+    document.addEventListener('touchend', up);
+  });
+
+  // Keyboard
   handle.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') { e.preventDefault(); apply(slider.getBoundingClientRect().left + (parseFloat(handle.style.left) - 1) / 100 * slider.getBoundingClientRect().width); }
-    if (e.key === 'ArrowRight') { e.preventDefault(); apply(slider.getBoundingClientRect().left + (parseFloat(handle.style.left) + 1) / 100 * slider.getBoundingClientRect().width); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); applyPct(comparison.pos - 1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); applyPct(comparison.pos + 1); }
   });
 }
 
