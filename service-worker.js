@@ -4,31 +4,50 @@
  * - Stale-while-revalidate for the ONNX model
  * - Cache .wasm at runtime (optional)
  */
-const CACHE = 'bgremove-v1-20251104-2';
+const CACHE = 'bgremove-v1-20251104-3';
+
+// Mandatory app shell assets (must exist)
 const ASSETS = [
   'index.html',
   'public/styles.css',
   'public/ort.min.js',
-  // Optional: precache wasm binaries if present (improves offline reliability)
-  'public/ort-wasm.wasm',
-  'public/ort-wasm-simd.wasm',
-  // You can include the threaded ones too if you commit them:
-  // 'public/ort-wasm-threaded.wasm',
-  // 'public/ort-wasm-simd-threaded.wasm',
   'src/app.js',
   'src/model.js',
   'src/image.js',
   'src/ui.js',
   'src/pwa.js',
   'public/logo.svg',
-  'public/icon-192.png',
-  'public/icon-512.png',
   'manifest.webmanifest',
+  // Model (versioned)
   'public/u2netp.onnx?v=20251104'
 ];
 
+// Optional assets (try to cache, but ignore failures if missing)
+const OPTIONAL = [
+  'public/icon-192.png',
+  'public/icon-512.png',
+  'public/ort-wasm.wasm',
+  'public/ort-wasm-simd.wasm'
+  // 'public/ort-wasm-threaded.wasm',
+  // 'public/ort-wasm-simd-threaded.wasm'
+];
+
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    // Precache mandatory assets (fail install if these fail)
+    await cache.addAll(ASSETS);
+    // Try optional assets (don’t fail if any are missing)
+    await Promise.allSettled(
+      OPTIONAL.map(async (url) => {
+        try {
+          const resp = await fetch(url, { cache: 'no-cache' });
+          if (resp.ok) await cache.put(url, resp.clone());
+        } catch {}
+      })
+    );
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (e) => {
