@@ -181,13 +181,13 @@ function initBrushCanvas(state, handlers) {
           if (px >= 0 && px < c.width && py >= 0 && py < c.height) {
             const idx = py * c.width + px;
             pixels.push(idx);
-            const falloff = 1 - (dist / r);
-            values.push(brushState.mode === 'add' ? Math.max(falloff, 0) : 0);
+            const falloff = Math.max(0, 1 - (dist / r));
+            values.push(falloff); // strength 0..1
           }
         }
       }
     }
-    if (pixels.length) handlers.onBrushPaint({ pixels, values });
+    if (pixels.length) handlers.onBrushPaint({ pixels, values, mode: brushState.mode });
   };
 
   c.addEventListener('mousedown', (e) => { brushState.painting = true; paintAt(e.clientX, e.clientY); });
