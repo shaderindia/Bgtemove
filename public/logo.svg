@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BgRemove Logo">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C5CFF"/>
+      <stop offset="1" stop-color="#4F46E5"/>
+    </linearGradient>
+    <pattern id="checker" width="16" height="16" patternUnits="userSpaceOnUse">
+      <rect width="16" height="16" fill="#EEF2FF"/>
+      <rect width="8" height="8" fill="#E5E7EB"/>
+      <rect x="8" y="8" width="8" height="8" fill="#E5E7EB"/>
+    </pattern>
+    <filter id="blur" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect x="8" y="8" width="240" height="240" rx="52" ry="52" fill="url(#checker)"/>
+
+  <!-- Gradient shape with subtle blur shadow -->
+  <g filter="url(#blur)" opacity="0.25">
+    <path d="M56 120c0-40 32-72 72-72s72 32 72 72-32 72-72 72-72-32-72-72z" fill="#6366F1"/>
+  </g>
+
+  <!-- Foreground badge -->
+  <rect x="8" y="8" width="240" height="240" rx="52" ry="52" fill="none" stroke="rgba(79,70,229,0.12)" stroke-width="2"/>
+
+  <!-- Stylized scissors (cut-out) mark and subject silhouette -->
+  <g>
+    <!-- Subject circle -->
+    <circle cx="128" cy="120" r="62" fill="url(#g)"/>
+    <!-- Scissor-like cut path -->
+    <path d="M88 168c14-10 32-16 40-16s26 6 40 16" stroke="white" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.9"/>
+    <path d="M128 86c-14 0-26 12-26 26s12 26 26 26 26-12 26-26-12-26-26-26z" fill="white" opacity="0.9"/>
+  </g>
+</svg>
