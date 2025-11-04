@@ -103,8 +103,18 @@ function handleEdgeSoftnessChange(value) {
 
 function handleBrushPaint(paintData) {
     if (!state.currentMask) return;
+    const mode = paintData.mode || 'add';
     paintData.pixels.forEach((idx, i) => {
-        state.currentMask[idx] = paintData.values[i];
+        const strength = Math.max(0, Math.min(1, paintData.values[i]));
+        const cur = state.currentMask[idx];
+        let next = cur;
+        if (mode === 'add') {
+            next = Math.max(cur, strength);
+        } else {
+            // remove: reduce alpha by brush strength
+            next = cur * (1 - strength);
+        }
+        state.currentMask[idx] = Math.max(0, Math.min(1, next));
     });
     addToHistory();
     updatePreview();
@@ -115,8 +125,8 @@ function addToHistory() {
     state.maskHistory.push(new Float32Array(state.currentMask));
     state.historyIndex++;
     if (state.maskHistory.length > 50) {
-        state.maskHistory.shift();
-        state.historyIndex--;
+      state.maskHistory.shift();
+      state.historyIndex--;
     }
     updateHistoryButtons(state.historyIndex > 0, false);
 }
