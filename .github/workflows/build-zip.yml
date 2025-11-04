@@ -1,0 +1,47 @@
+name: Build Offline ZIP
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install zip
+        run: sudo apt-get update && sudo apt-get install -y zip
+
+      - name: Fetch onnxruntime-web and package ZIP
+        run: |
+          chmod +x tools/make-zip.sh || true
+          if [ ! -f tools/make-zip.sh ]; then
+            cat > tools/make-zip.sh <<'EOS'
+            #!/usr/bin/env bash
+            set -euo pipefail
+            VER="${1:-1.16.3}"
+            ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+            cd "$ROOT"
+            mkdir -p public
+            curl -fsSL "https://cdn.jsdelivr.net/npm/onnxruntime-web@${VER}/dist/ort.min.js" -o public/ort.min.js
+            curl -fsSL "https://cdn.jsdelivr.net/npm/onnxruntime-web@${VER}/dist/ort-wasm.wasm" -o public/ort-wasm.wasm || true
+            curl -fsSL "https://cdn.jsdelivr.net/npm/onnxruntime-web@${VER}/dist/ort-wasm-simd.wasm" -o public/ort-wasm-simd.wasm || true
+            curl -fsSL "https://cdn.jsdelivr.net/npm/onnxruntime-web@${VER}/dist/ort-wasm-threaded.wasm" -o public/ort-wasm-threaded.wasm || true
+            curl -fsSL "https://cdn.jsdelivr.net/npm/onnxruntime-web@${VER}/dist/ort-wasm-simd-threaded.wasm" -o public/ort-wasm-simd-threaded.wasm || true
+            OUT="bgremove-offline.zip"
+            rm -f "$OUT"
+            zip -r "$OUT" . -x ".git/*" ".github/*" "node_modules/*" "tools/*" "*.DS_Store"
+            EOS
+            chmod +x tools/make-zip.sh
+          fi
+          tools/make-zip.sh 1.16.3
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bgremove-offline
+          path: bgremove-offline.zip
+          if-no-files-found: error
