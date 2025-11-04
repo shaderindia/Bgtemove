@@ -24,9 +24,14 @@ export async function initModel() {
     throw new Error('onnxruntime-web (ort) not found. Make sure public/ort.min.js is loaded.');
   }
 
-  // Ensure ORT knows where to fetch wasm binaries if WASM EP is used
+  // Configure ORT WASM environment for GitHub Pages (no COOP/COEP)
   if (ort?.env?.wasm) {
+    // Fetch wasm binaries from /public
     ort.env.wasm.wasmPaths = 'public/';
+    // Force single-threaded to avoid SharedArrayBuffer requirement
+    ort.env.wasm.numThreads = 1;
+    // Let ORT auto-detect SIMD; it will fall back to non-SIMD if not available
+    // ort.env.wasm.simd left as default
   }
 
   const tryProviders = [
