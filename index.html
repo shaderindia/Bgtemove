@@ -1,1 +1,88 @@
-<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self';">\n    <link rel="manifest" href="/manifest.json">\n    <title>App Name - Execution Provider</title>\n    <style>\n        /* Inline critical CSS for layout and responsive design */\n        body { display: flex; }\n        .container { display: grid; grid-template-columns: 2fr 3fr; }\n        .controls, .comparison { padding: 20px; }\n        @media (max-width: 600px) {\n            .container { grid-template-columns: 1fr; }\n        }\n    </style>\n</head>\n<body>\n    <div class="container">\n        <header aria-label="Application Header">\n            <h1>App Name</h1>\n            <p>Execution Provider: XYZ</p>\n        </header>\n        <main>\n            <div class="controls" aria-label="Controls" tabindex="0">\n                <div id="dropzone" aria-label="Drag and Drop Zone" tabindex="0">Drag & Drop Files Here</div>\n                <input type="file" aria-label="File Picker" accept="image/*">\n                <button aria-label="Paste Button" onclick="pasteImage()">Paste</button>\n                <select aria-label="Background Presets">\n                    <option value="preset1">Preset 1</option>\n                    <option value="preset2">Preset 2</option>\n                </select>\n                <input type="range" aria-label="Edge Softness Slider" min="0" max="100" value="50">\n                <div aria-label="Brush Controls" role="group">\n                    <label for="brush-size">Brush Size:</label>\n                    <input type="range" id="brush-size" min="1" max="100">\n                </div>\n                <div aria-label="Batch Mode Checkbox">\n                    <input type="checkbox" id="batch-mode">\n                    <label for="batch-mode">Batch Mode</label>\n                </div>\n            </div>\n            <div class="comparison" aria-label="Before and After Comparison" tabindex="0">\n                <canvas id="comparisonCanvas"></canvas>\n            </div>\n        </main>\n        <footer>\n            <button id="download-png" aria-label="Download PNG">Download PNG</button>\n            <button id="download-jpg" aria-label="Download JPG">Download JPG</button>\n            <div id="toast-container" role="alert" aria-live="polite"></div>\n            <div id="loading-spinner" style="display:none;">Loading...</div>\n        </footer>\n    </div>\n    <script type="module" src="app.js"></script>\n</body>\n</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self'; connect-src 'self'; img-src 'self' blob: data:;">
+  <meta name="theme-color" content="#4F46E5">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="public/logo.svg">
+  <link rel="stylesheet" href="public/styles.css">
+  <title>BgRemove - Privacy-First Background Removal</title>
+  <!-- Load ONNX Runtime Web locally to satisfy CSP -->
+  <script src="public/ort.min.js"></script>
+</head>
+<body>
+  <!-- Existing body preserved (controls, canvases, buttons, etc.) -->
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay" style="display: none;" role="alert" aria-live="assertive">
+    <div class="spinner"></div>
+    <p id="loading-text">Loading model...</p>
+  </div>
+
+  <header class="header">
+    <div class="header-content">
+      <h1>
+        <img src="public/logo.svg" alt="" class="logo" width="32" height="32">
+        BgRemove
+      </h1>
+      <div class="model-indicator" role="status" aria-live="polite">
+        <span class="status-dot"></span>
+        <span id="execution-provider">Initializing...</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Left controls and right preview sections (as you already have) -->
+    <!-- Keep your existing markup; omitted here for brevity -->
+    <aside class="controls-panel" role="complementary">
+      <!-- ... -->
+    </aside>
+
+    <section class="preview-panel" role="main">
+      <div id="empty-state" class="empty-state">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+        <h3>No Image Loaded</h3>
+        <p>Drop an image or paste from clipboard to get started</p>
+      </div>
+
+      <div id="preview-container" class="preview-container" style="display: none;">
+        <div class="comparison-slider" id="comparison-slider">
+          <canvas id="before-canvas" class="comparison-canvas"></canvas>
+          <canvas id="after-canvas" class="comparison-canvas"></canvas>
+          <div class="slider-handle" id="slider-handle" role="slider" tabindex="0" aria-label="Comparison slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+            <div class="slider-line"></div>
+            <div class="slider-button">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <path d="M15 19l-7-7 7-7"/>
+                <path d="M9 19l7-7-7-7"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <canvas id="brush-canvas" class="brush-canvas"></canvas>
+
+        <div class="preview-actions">
+          <button id="download-png-btn" class="btn btn-primary" aria-label="Download PNG with transparent background">
+            Download PNG
+          </button>
+          <button id="download-jpg-btn" class="btn btn-secondary" aria-label="Download JPG with selected background">
+            Download JPG
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <script type="module" src="src/app.js"></script>
+  <script src="src/pwa.js"></script>
+</body>
+</html>
