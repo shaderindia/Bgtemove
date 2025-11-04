@@ -1,14 +1,12 @@
 /**
  * Main application entry point
  * Coordinates model loading, UI initialization, and image processing pipeline
- * @module app
  */
 
 import { initModel, processImage, getExecutionProvider } from './model.js';
 import { initUI, showToast, showLoading, hideLoading, updateHistoryButtons, togglePreview } from './ui.js';
 import { loadImage, composeOutput } from './image.js';
 
-/** @type {Object} Application state */
 const state = {
     originalImage: null,
     originalMask: null,
@@ -32,11 +30,14 @@ async function init() {
         state.modelReady = true;
         
         const provider = getExecutionProvider();
-        document.getElementById('execution-provider').textContent = provider;
-        document.querySelector('.status-dot').classList.add('active');
+        const providerEl = document.getElementById('execution-provider');
+        if (providerEl) providerEl.textContent = provider;
+        
+        const statusDot = document.querySelector('.status-dot');
+        if (statusDot) statusDot.classList.add('active');
         
         hideLoading();
-        showToast(`Model loaded successfully (${provider})`, 'success');
+        showToast(`Model loaded (${provider})`, 'success');
         
         initUI(state, {
             onImageLoad: handleImageLoad,
@@ -53,17 +54,17 @@ async function init() {
     } catch (error) {
         hideLoading();
         showToast(`Failed to load model: ${error.message}`, 'error');
+        console.error('Init error:', error);
     }
 }
 
 async function handleImageLoad(file) {
     if (!state.modelReady) {
-        showToast('Model not ready yet. Please wait...', 'warning');
+        showToast('Model not ready yet', 'warning');
         return;
     }
-    
     if (file.size > 50 * 1024 * 1024) {
-        showToast('File too large. Maximum size is 50MB.', 'error');
+        showToast('File too large (max 50MB)', 'error');
         return;
     }
     
@@ -82,7 +83,7 @@ async function handleImageLoad(file) {
         togglePreview(true);
         updatePreview();
         updateHistoryButtons(false, false);
-        showToast('Background removed successfully!', 'success');
+        showToast('Background removed!', 'success');
     } catch (error) {
         hideLoading();
         showToast(`Processing failed: ${error.message}`, 'error');
@@ -125,7 +126,10 @@ function handleUndo() {
         state.historyIndex--;
         state.currentMask = new Float32Array(state.maskHistory[state.historyIndex]);
         updatePreview();
-        updateHistoryButtons(state.historyIndex > 0, state.historyIndex < state.maskHistory.length - 1);
+        updateHistoryButtons(
+            state.historyIndex > 0,
+            state.historyIndex < state.maskHistory.length - 1
+        );
     }
 }
 
@@ -134,7 +138,10 @@ function handleRedo() {
         state.historyIndex++;
         state.currentMask = new Float32Array(state.maskHistory[state.historyIndex]);
         updatePreview();
-        updateHistoryButtons(state.historyIndex > 0, state.historyIndex < state.maskHistory.length - 1);
+        updateHistoryButtons(
+            state.historyIndex > 0,
+            state.historyIndex < state.maskHistory.length - 1
+        );
     }
 }
 
@@ -145,13 +152,20 @@ function handleResetMask() {
         state.historyIndex = 0;
         updatePreview();
         updateHistoryButtons(false, false);
-        showToast('Mask reset to original', 'info');
+        showToast('Mask reset', 'info');
     }
 }
 
 function updatePreview() {
     if (!state.originalImage || !state.currentMask) return;
-    const output = composeOutput(state.originalImage.canvas, state.currentMask, state.backgroundMode, state.customColor, state.edgeSoftness);
+    
+    const output = composeOutput(
+        state.originalImage.canvas,
+        state.currentMask,
+        state.backgroundMode,
+        state.customColor,
+        state.edgeSoftness
+    );
     
     const beforeCanvas = document.getElementById('before-canvas');
     const afterCanvas = document.getElementById('after-canvas');
@@ -168,15 +182,34 @@ function updatePreview() {
 }
 
 function handleDownloadPNG() {
-    if (!state.originalImage || !state.currentMask) return;
-    const output = composeOutput(state.originalImage.canvas, state.currentMask, 'transparent', null, state.edgeSoftness);
+    if (!state.originalImage || !state.currentMask) {
+        showToast('No image to download', 'warning');
+        return;
+    }
+    const output = composeOutput(
+        state.originalImage.canvas,
+        state.currentMask,
+        'transparent',
+        null,
+        state.edgeSoftness
+    );
     downloadCanvas(output, 'background-removed.png');
     showToast('PNG downloaded', 'success');
 }
 
 function handleDownloadJPG() {
-    if (!state.originalImage || !state.currentMask) return;
-    const output = composeOutput(state.originalImage.canvas, state.currentMask, state.backgroundMode === 'transparent' ? 'white' : state.backgroundMode, state.customColor, state.edgeSoftness);
+    if (!state.originalImage || !state.currentMask) {
+        showToast('No image to download', 'warning');
+        return;
+    }
+    const bgMode = state.backgroundMode === 'transparent' ? 'white' : state.backgroundMode;
+    const output = composeOutput(
+        state.originalImage.canvas,
+        state.currentMask,
+        bgMode,
+        state.customColor,
+        state.edgeSoftness
+    );
     downloadCanvas(output, 'background-removed.jpg', 'image/jpeg');
     showToast('JPG downloaded', 'success');
 }
