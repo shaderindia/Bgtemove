@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self';">
+    <link rel="manifest" href="/manifest.json">
+    <title>Background Removal Web App</title>
+    <link rel="stylesheet" href="/public/styles.css">
+</head>
+<body>
+    <header>
+        <h1>Background Removal Tool</h1>
+    </header>
+    <main>
+        <section aria-labelledby="upload-section">
+            <h2 id="upload-section">Upload Image</h2>
+            <input type="file" id="image-input" accept="image/*" aria-label="Upload an image for background removal">
+        </section>
+        
+        <section aria-labelledby="controls-section">
+            <h2 id="controls-section">Background Controls</h2>
+            <div>
+                <label for="background-color">Background Color:</label>
+                <input type="color" id="background-color" aria-label="Select a background color">
+            </div>
+            <div>
+                <label for="brush-size">Brush Size:</label>
+                <input type="range" id="brush-size" min="1" max="50" aria-label="Adjust brush size">
+            </div>
+        </section>
+        
+        <section aria-labelledby="comparison-section">
+            <h2 id="comparison-section">Before / After Comparison</h2>
+            <div>
+                <div id="before-image" aria-label="Before Image"></div>
+                <div id="after-image" aria-label="After Image"></div>
+            </div>
+        </section>
+        
+        <section aria-labelledby="download-section">
+            <h2 id="download-section">Download</h2>
+            <button id="download-before" aria-label="Download the before image">Download Before</button>
+            <button id="download-after" aria-label="Download the after image">Download After</button>
+        </section>
+    </main>
+    <script src="/src/modules/imageUploader.js" defer></script>
+    <script src="/src/modules/backgroundControls.js" defer></script>
+</body>
+</html>
