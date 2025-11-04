@@ -21,7 +21,7 @@ export async function loadImage(file) {
       ctx.drawImage(img, 0, 0);
       resolve({ image: img, canvas });
     };
-    img.onerror = (e) => {
+    img.onerror = () => {
       URL.revokeObjectURL(url);
       reject(new Error('Failed to load image'));
     };
@@ -110,26 +110,23 @@ export function composeOutput(srcCanvas, mask, bgMode, bgColor, edgeSoftness) {
     ctx.clearRect(0, 0, w, h);
   }
 
-  // Put original on a temp context to read pixels
+  // Compose with alpha
   const sctx = srcCanvas.getContext('2d', { willReadFrequently: true });
-  const srcData = sctx.getImageData(0, 0, w, h);
-  const src = srcData.data;
-
-  // If transparent, we need to write alpha; if opaque bg, we composite
+  const src = sctx.getImageData(0, 0, w, h).data;
   const outData = ctx.getImageData(0, 0, w, h);
   const dst = outData.data;
 
   if (bgMode === 'transparent') {
     for (let i = 0; i < finalMask.length; i++) {
-      const alpha = Math.max(0, Math.min(1, finalMask[i]));
+      const a = Math.max(0, Math.min(1, finalMask[i]));
       const p = i * 4;
       dst[p] = src[p];
       dst[p + 1] = src[p + 1];
       dst[p + 2] = src[p + 2];
-      dst[p + 3] = Math.round(alpha * 255);
+      dst[p + 3] = Math.round(a * 255);
     }
   } else {
-    // alpha composite: fg * a + bg * (1-a), bg already in dst
+    // dst already contains bg; alpha composite: fg * a + bg * (1-a)
     for (let i = 0; i < finalMask.length; i++) {
       const a = Math.max(0, Math.min(1, finalMask[i]));
       const p = i * 4;
