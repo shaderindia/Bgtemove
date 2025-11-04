@@ -1,25 +1,24 @@
 /**
  * Service Worker for offline support and caching
- * - Precache app shell
+ * - Precache app shell (relative paths for GH Pages)
  * - Stale-while-revalidate for the ONNX model
+ * - Cache .wasm at runtime (optional)
  */
 const CACHE = 'bgremove-v1-20251104';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/public/styles.css',
-  '/src/app.js',
-  '/src/model.js',
-  '/src/image.js',
-  '/src/ui.js',
-  '/src/pwa.js',
-  '/public/logo.svg',
-  '/public/icon-192.png',
-  '/public/icon-512.png',
-  '/manifest.webmanifest',
-  '/public/ort.min.js',
-  // Model with version for cache busting
-  '/public/u2netp.onnx?v=20251104'
+  'index.html',
+  'public/styles.css',
+  'public/ort.min.js',
+  'src/app.js',
+  'src/model.js',
+  'src/image.js',
+  'src/ui.js',
+  'src/pwa.js',
+  'public/logo.svg',
+  'public/icon-192.png',
+  'public/icon-512.png',
+  'manifest.webmanifest',
+  'public/u2netp.onnx?v=20251104'
 ];
 
 self.addEventListener('install', (e) => {
