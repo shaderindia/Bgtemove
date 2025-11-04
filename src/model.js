@@ -26,7 +26,6 @@ export async function initModel() {
 
   // Ensure ORT knows where to fetch wasm binaries if WASM EP is used
   if (ort?.env?.wasm) {
-    // If you placed ort-wasm*.wasm next to ort.min.js in /public/, this is correct
     ort.env.wasm.wasmPaths = 'public/';
   }
 
@@ -61,4 +60,95 @@ export function getExecutionProvider() {
   return executionProvider;
 }
 
-// ... rest of file unchanged
+/**
+ * Resize + normalize to float32 CHW in [0,1]
+ */
+function preprocess(canvas) {
+  const size = MODEL_IO.inputSize;
+  const tmp = document.createElement('canvas');
+  tmp.width = size;
+  tmp.height = size;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(canvas, 0, 0, size, size);
+  const { data } = tctx.getImageData(0, 0, size, size);
+
+  const chw = new Float32Array(3 * size * size);
+  for (let i = 0; i < size * size; i++) {
+    chw[i] = data[i * 4] / 255;
+    chw[size * size + i] = data[i * 4 + 1] / 255;
+    chw[size * size * 2 + i] = data[i * 4 + 2] / 255;
+  }
+  return { tensor: new ort.Tensor('float32', chw, [1, 3, size, size]) };
+}
+
+/**
+ * Bilinear upscale from model size to original size
+ */
+function bilinearUpscale(src, srcW, srcH, dstW, dstH) {
+  const dst = new Float32Array(dstW * dstH);
+  const xRatio = srcW / dstW;
+  const yRatio = srcH / dstH;
+  for (let y = 0; y < dstH; y++) {
+    for (let x = 0; x < dstW; x++) {
+      const sx = x * xRatio, sy = y * yRatio;
+      const x1 = Math.floor(sx), y1 = Math.floor(sy);
+      const x2 = Math.min(x1 + 1, srcW - 1), y2 = Math.min(y1 + 1, srcH - 1);
+      const dx = sx - x1, dy = sy - y1;
+
+      const p11 = src[y1 * srcW + x1];
+      const p12 = src[y1 * srcW + x2];
+      const p21 = src[y2 * srcW + x1];
+      const p22 = src[y2 * srcW + x2];
+
+      dst[y * dstW + x] =
+        p11 * (1 - dx) * (1 - dy) +
+        p12 * dx * (1 - dy) +
+        p21 * (1 - dx) * dy +
+        p22 * dx * dy;
+    }
+  }
+  return dst;
+}
+
+/**
+ * Run inference and return mask as Float32Array [0..1] of original size
+ */
+export async function processImage(origCanvas) {
+  if (!session) throw new Error('Model not initialized');
+
+  const { tensor } = preprocess(origCanvas);
+  const feeds = { [MODEL_IO.inputName]: tensor };
+  const outputs = await session.run(feeds);
+
+  // Pick first available output if name unknown
+  const outKey = MODEL_IO.outputName in outputs
+    ? MODEL_IO.outputName
+    : Object.keys(outputs)[0];
+
+  const out = outputs[outKey];
+  const data = out.data; // Float32Array
+  const modelSize = MODEL_IO.inputSize;
+
+  let src;
+  if (data instanceof Float32Array && data.length === modelSize * modelSize) {
+    src = data;
+  } else if (data instanceof Float32Array && out.dims?.length === 4) {
+    const h = out.dims[2], w = out.dims[3];
+    if (h === modelSize && w === modelSize) {
+      src = data;
+    } else {
+      const flat = new Float32Array(h * w);
+      for (let i = 0; i < h * w; i++) flat[i] = data[i];
+      const up = bilinearUpscale(flat, w, h, origCanvas.width, origCanvas.height);
+      for (let i = 0; i < up.length; i++) up[i] = Math.max(0, Math.min(1, up[i]));
+      return up;
+    }
+  } else {
+    src = new Float32Array(modelSize * modelSize);
+    for (let i = 0; i < src.length && i < data.length; i++) src[i] = data[i];
+  }
+
+  const up = bilinearUpscale(src, modelSize, modelSize, origCanvas.width, origCanvas.height);
+  for (let i = 0; i < up.length; i++) up[i] = Math.max(0, Math.min(1, up[i]));
+  return up;
+}
