@@ -1,6 +1,5 @@
 /**
  * UI wiring for inputs, sliders, brush, before/after slider, downloads, batch
- * Exposes: initUI(state, handlers), showToast, showLoading, hideLoading, updateHistoryButtons, togglePreview, updateBatchQueue
  */
 
 let callbacks = {};
@@ -35,21 +34,19 @@ export function initUI(state, handlers) {
 
   // Paste support
   const pasteBtn = document.getElementById('paste-btn');
-  if (pasteBtn) {
-    pasteBtn.addEventListener('click', async () => {
-      try {
-        const items = await navigator.clipboard.read();
-        for (const item of items) {
-          for (const t of item.types) {
-            if (t.startsWith('image/')) { const b = await item.getType(t); handlers.onImageLoad(b); showToast('Pasted image', 'success'); return; }
-          }
+  pasteBtn?.addEventListener('click', async () => {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        for (const t of item.types) {
+          if (t.startsWith('image/')) { const b = await item.getType(t); handlers.onImageLoad(b); showToast('Pasted image', 'success'); return; }
         }
-        showToast('No image in clipboard', 'warning');
-      } catch {
-        showToast('Clipboard read failed', 'error');
       }
-    });
-  }
+      showToast('No image in clipboard', 'warning');
+    } catch {
+      showToast('Clipboard read failed', 'error');
+    }
+  });
   document.addEventListener('paste', (e) => {
     const items = Array.from(e.clipboardData?.items || []);
     for (const it of items) {
@@ -66,26 +63,22 @@ export function initUI(state, handlers) {
     });
   });
   const color = document.getElementById('custom-color');
-  if (color) {
-    color.addEventListener('input', (e) => handlers.onBackgroundChange('custom', e.target.value));
-    color.addEventListener('change', (e) => handlers.onBackgroundChange('custom', e.target.value));
-  }
+  color?.addEventListener('input', (e) => handlers.onBackgroundChange('custom', e.target.value));
+  color?.addEventListener('change', (e) => handlers.onBackgroundChange('custom', e.target.value));
 
   // Edge softness
   const soft = document.getElementById('edge-softness');
   const softVal = document.getElementById('softness-value');
-  if (soft && softVal) {
-    soft.addEventListener('input', (e) => { const v = parseFloat(e.target.value); softVal.textContent = v; handlers.onEdgeSoftnessChange(v); });
-  }
+  if (soft && softVal) soft.addEventListener('input', (e) => { const v = parseFloat(e.target.value); softVal.textContent = v; handlers.onEdgeSoftnessChange(v); });
 
   // Brush controls
   const addBtn = document.getElementById('brush-add');
   const remBtn = document.getElementById('brush-remove');
   const size = document.getElementById('brush-size');
   const sizeVal = document.getElementById('brush-size-value');
-  if (addBtn) addBtn.addEventListener('click', () => { brushState.mode = 'add'; addBtn.classList.add('active'); addBtn.setAttribute('aria-checked', 'true'); remBtn?.classList.remove('active'); remBtn?.setAttribute('aria-checked', 'false'); });
-  if (remBtn) remBtn.addEventListener('click', () => { brushState.mode = 'remove'; remBtn.classList.add('active'); remBtn.setAttribute('aria-checked', 'true'); addBtn?.classList.remove('active'); addBtn?.setAttribute('aria-checked', 'false'); });
-  if (size && sizeVal) size.addEventListener('input', (e) => { brushState.size = parseInt(e.target.value); sizeVal.textContent = brushState.size; });
+  addBtn?.addEventListener('click', () => { brushState.mode = 'add'; addBtn.classList.add('active'); addBtn.setAttribute('aria-checked', 'true'); remBtn?.classList.remove('active'); remBtn?.setAttribute('aria-checked', 'false'); });
+  remBtn?.addEventListener('click', () => { brushState.mode = 'remove'; remBtn.classList.add('active'); remBtn.setAttribute('aria-checked', 'true'); addBtn?.classList.remove('active'); addBtn?.setAttribute('aria-checked', 'false'); });
+  size?.addEventListener('input', (e) => { brushState.size = parseInt(e.target.value); if (sizeVal) sizeVal.textContent = brushState.size; });
 
   // Undo/Redo/Reset
   const undo = document.getElementById('undo-btn');
@@ -122,24 +115,22 @@ function initComparisonSlider() {
   const apply = (x) => {
     const rect = slider.getBoundingClientRect();
     const pct = Math.max(0, Math.min(100, ((x - rect.left) / rect.width) * 100));
-    comparison.pos = pct;
     after.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
     handle.style.left = `${pct}%`;
     handle.setAttribute('aria-valuenow', `${Math.round(pct)}`);
   };
 
-  handle.addEventListener('mousedown', (e) => { e.preventDefault(); comparison.dragging = true; });
-  handle.addEventListener('touchstart', (e) => { e.preventDefault(); comparison.dragging = true; });
-  document.addEventListener('mousemove', (e) => { if (comparison.dragging) apply(e.clientX); });
-  document.addEventListener('touchmove', (e) => { if (comparison.dragging) apply(e.touches[0].clientX); });
-  document.addEventListener('mouseup', () => { comparison.dragging = false; });
-  document.addEventListener('touchend', () => { comparison.dragging = false; });
+  handle.addEventListener('mousedown', (e) => { e.preventDefault(); document.addEventListener('mousemove', move); document.addEventListener('mouseup', up); });
+  handle.addEventListener('touchstart', (e) => { e.preventDefault(); document.addEventListener('touchmove', tmove, { passive: false }); document.addEventListener('touchend', tup); });
+
+  function move(e){ apply(e.clientX); }
+  function up(){ document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }
+  function tmove(e){ apply(e.touches[0].clientX); }
+  function tup(){ document.removeEventListener('touchmove', tmove); document.removeEventListener('touchend', tup); }
 
   handle.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') { e.preventDefault(); comparison.pos = Math.max(0, comparison.pos - 1); }
-    if (e.key === 'ArrowRight') { e.preventDefault(); comparison.pos = Math.min(100, comparison.pos + 1); }
-    after.style.clipPath = `inset(0 ${100 - comparison.pos}% 0 0)`;
-    handle.style.left = `${comparison.pos}%`;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); apply(slider.getBoundingClientRect().left + (parseFloat(handle.style.left) - 1) / 100 * slider.getBoundingClientRect().width); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); apply(slider.getBoundingClientRect().left + (parseFloat(handle.style.left) + 1) / 100 * slider.getBoundingClientRect().width); }
   });
 }
 
@@ -148,15 +139,9 @@ function initBrushCanvas(state, handlers) {
   const before = document.getElementById('before-canvas');
   if (!c || !before) return;
 
-  // Match size to canvases after first draw (app.js sets sizes)
-  const resize = () => {
-    c.width = before.width;
-    c.height = before.height;
-    c.style.width = '100%';
-    c.style.height = '100%';
-  };
-  const observer = new ResizeObserver(resize);
-  observer.observe(before);
+  const resize = () => { c.width = before.width; c.height = before.height; c.style.width = '100%'; c.style.height = '100%'; };
+  const obs = new ResizeObserver(resize);
+  obs.observe(before);
 
   const paintAt = (clientX, clientY) => {
     if (!state.currentMask) return;
