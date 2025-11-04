@@ -4,11 +4,17 @@
  * - Stale-while-revalidate for the ONNX model
  * - Cache .wasm at runtime (optional)
  */
-const CACHE = 'bgremove-v1-20251104';
+const CACHE = 'bgremove-v1-20251104-2';
 const ASSETS = [
   'index.html',
   'public/styles.css',
   'public/ort.min.js',
+  // Optional: precache wasm binaries if present (improves offline reliability)
+  'public/ort-wasm.wasm',
+  'public/ort-wasm-simd.wasm',
+  // You can include the threaded ones too if you commit them:
+  // 'public/ort-wasm-threaded.wasm',
+  // 'public/ort-wasm-simd-threaded.wasm',
   'src/app.js',
   'src/model.js',
   'src/image.js',
