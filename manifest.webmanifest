@@ -1,0 +1,13 @@
+{
+  "name": "BgRemove - Background Removal Tool",
+  "short_name": "BgRemove",
+  "description": "Privacy-first background removal tool running 100% in your browser",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4F46E5",
+  "icons": [
+    {"src": "public/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "public/icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
