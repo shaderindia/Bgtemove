@@ -17,6 +17,7 @@ const ASSETS = [
   '/public/icon-192.png',
   '/public/icon-512.png',
   '/manifest.webmanifest',
+  '/public/ort.min.js',
   // Model with version for cache busting
   '/public/u2netp.onnx?v=20251104'
 ];
@@ -34,6 +35,7 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
+
   // Stale-while-revalidate for ONNX model
   if (url.pathname.endsWith('.onnx')) {
     e.respondWith(
@@ -45,6 +47,19 @@ self.addEventListener('fetch', (e) => {
           }).catch(() => resp);
           return resp || fetchPromise;
         })
+      )
+    );
+    return;
+  }
+
+  // Runtime cache for ORT wasm binaries (if present)
+  if (url.pathname.endsWith('.wasm')) {
+    e.respondWith(
+      caches.open(CACHE).then(cache =>
+        cache.match(e.request).then(resp => resp || fetch(e.request).then(net => {
+          cache.put(e.request, net.clone());
+          return net;
+        }))
       )
     );
     return;
